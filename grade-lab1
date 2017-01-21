@@ -19,7 +19,7 @@ BACKTRACE_RE = r"^ *ebp +f01[0-9a-z]{5} +eip +f0100[0-9a-z]{3} +args +([0-9a-z]+
 @test(10, parent=test_jos)
 def test_backtrace_count():
     matches = re.findall(BACKTRACE_RE, r.qemu.output, re.MULTILINE)
-    assert_equal(len(matches), 8)
+    assert_equal(len(matches), 7)
 
 @test(10, parent=test_jos)
 def test_backtrace_arguments():
