@@ -108,9 +108,7 @@ boot_alloc(uint32_t n)
 	result = nextfree;
 
 	nextfree += n;
-	if ((uint32_t) nextfree % PGSIZE == 0) {
-		nextfree = (char *) ((uint32_t) nextfree / PGSIZE * PGSIZE + PGSIZE);
-	}
+	nextfree = ROUNDUP(nextfree, PGSIZE);
 
 	// 4MB limit.
 	if ((uint32_t) nextfree - KERNBASE > PTSIZE) {
