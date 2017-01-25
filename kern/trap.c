@@ -182,34 +182,34 @@ trap_dispatch(struct Trapframe *tf)
 	int32_t r;
 
 	regs = &(tf->tf_regs);
-	switch (tf->tf_trapno) {
-		case T_PGFLT: {
-			page_fault_handler(tf);
-		} break;
 
-		case T_BRKPT: {
-			monitor(tf);
-		} break;
+	if (tf->tf_trapno == T_PGFLT) {
+		page_fault_handler(tf);
+		return;
+	}
 
-		case T_SYSCALL: {
-			// Generic system call: pass system call number in AX,
-			// up to five parameters in DX, CX, BX, DI, SI.
-			// Interrupt kernel with T_SYSCALL.
-			r = syscall(regs->reg_eax, regs->reg_edx, regs->reg_ecx,
-					regs->reg_ebx, regs->reg_edi, regs->reg_esi);
-			regs->reg_eax = r;
-		} break;
+	if (tf->tf_trapno == T_BRKPT) {
+		monitor(tf);
+		return;
+	}
 
-		default: {
-			// Unexpected trap: The user process or the kernel has a bug.
-			print_trapframe(tf);
-			if (tf->tf_cs == GD_KT)
-				panic("unhandled trap in kernel");
-			else {
-				env_destroy(curenv);
-				return;
-			}
-		}
+	if (tf->tf_trapno == T_SYSCALL) {
+		// Generic system call: pass system call number in AX,
+		// up to five parameters in DX, CX, BX, DI, SI.
+		// Interrupt kernel with T_SYSCALL.
+		r = syscall(regs->reg_eax, regs->reg_edx, regs->reg_ecx,
+				regs->reg_ebx, regs->reg_edi, regs->reg_esi);
+		regs->reg_eax = r;
+		return;
+	}
+
+	// Unexpected trap: The user process or the kernel has a bug.
+	print_trapframe(tf);
+	if (tf->tf_cs == GD_KT)
+		panic("unhandled trap in kernel");
+	else {
+		env_destroy(curenv);
+		return;
 	}
 }
 
