@@ -565,7 +565,53 @@ static uintptr_t user_mem_check_addr;
 int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
-	// LAB 3: Your code here.
+	uintptr_t from, to, offset;
+	pde_t pde;
+	pte_t pte;
+	int ok;
+
+	from = (uintptr_t) va;
+	to = from + len;
+	ok = 1;
+
+	if (from >= ULIM) {
+		user_mem_check_addr = from;
+		return -E_FAULT;
+	}
+	from = ROUNDDOWN(from, PGSIZE);
+
+	if (to > ULIM) {
+		user_mem_check_addr = ULIM;
+		return -E_FAULT;
+	}
+	to = ROUNDUP(to, PGSIZE);
+
+	perm |= PTE_P;  // Page must present
+
+	for (offset = from; offset < to; offset += PGSIZE) {
+		pde = env->env_pgdir[PDX(offset)];
+		if ((pde & perm) != perm) {
+			user_mem_check_addr = offset;
+			ok = 0;
+			break;
+		}
+		pte = *((pte_t *) KADDR(PTE_ADDR(pde)) + PTX(offset));
+		if ((pte & perm) != perm) {
+			user_mem_check_addr = offset;
+			ok = 0;
+			break;
+		}
+	}
+
+	if (!ok) {
+		if (user_mem_check_addr < (uintptr_t) va) {
+			user_mem_check_addr = (uintptr_t) va;
+		}
+		if (user_mem_check_addr >= (uintptr_t) va + len) {
+			user_mem_check_addr >= (uintptr_t) va + len - 1;
+		}
+		return -E_FAULT;
+	}
 
 	return 0;
 }

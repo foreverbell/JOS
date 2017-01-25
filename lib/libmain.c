@@ -11,9 +11,11 @@ const char *binaryname = "<unknown>";
 void
 libmain(int argc, char **argv)
 {
+	envid_t envid;
+
 	// set thisenv to point at our Env structure in envs[].
-	// LAB 3: Your code here.
-	thisenv = 0;
+	envid = sys_getenvid();
+	thisenv = envs + ENVX(envid);
 
 	// save the name of the program so that panic() can use it
 	if (argc > 0)

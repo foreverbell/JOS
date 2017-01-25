@@ -88,8 +88,7 @@ TRAPHANDLER_NOEC(trap_handler17, 17)
 TRAPHANDLER_NOEC(trap_handler18, 18)
 TRAPHANDLER_NOEC(trap_handler19, 19)
 
-// syscall
-TRAPHANDLER_NOEC(trap_handler48, 48)
+TRAPHANDLER_NOEC(trap_handler48, 48)  // syscall
 
 _alltraps:
 	pushl %ds
@@ -99,4 +98,4 @@ _alltraps:
 	movw %ax, %ds
 	movw %ax, %es
 	pushl %esp
-	call trap
+	call trap   // trap() never returns

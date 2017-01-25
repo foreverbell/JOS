@@ -291,11 +291,8 @@ region_alloc(struct Env *e, void *va, size_t len)
 	size_t offset;
 	int r;
 
-	from = ((uintptr_t) va) / PGSIZE * PGSIZE;
-	to = (uintptr_t) va + len;
-	if (to % PGSIZE != 0) {
-		to = to / PGSIZE * PGSIZE + PGSIZE;
-	}
+	from = ROUNDDOWN((uintptr_t) va, PGSIZE);
+	to = ROUNDUP((uintptr_t) va + len, PGSIZE);
 	len = to - from;
 
 	for (offset = 0; offset < len; offset += PGSIZE) {
