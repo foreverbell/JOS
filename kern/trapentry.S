@@ -44,13 +44,59 @@
 
 .text
 
-/*
- * Lab 3: Your code here for generating entry points for the different traps.
+/* 
+ * https://pdos.csail.mit.edu/6.828/2016/readings/i386/s09_10.htm
+ *
+ * Table 9-7. Error-Code Summary
+ * 
+ * Description                       Interrupt     Error Code
+ * Number
+ * 
+ * Divide error                       0            No
+ * Debug exceptions                   1            No
+ * Breakpoint                         3            No
+ * Overflow                           4            No
+ * Bounds check                       5            No
+ * Invalid opcode                     6            No
+ * Coprocessor not available          7            No
+ * System error                       8            Yes (always 0)
+ * Invalid TSS                       10            Yes
+ * Segment not present               11            Yes
+ * Stack exception                   12            Yes
+ * General protection fault          13            Yes
+ * Page fault                        14            Yes
+ * Coprocessor error                 16            No
+ * Two-byte SW interrupt             0-255         No
+ *
  */
 
+TRAPHANDLER_NOEC(trap_handler0, 0)
+TRAPHANDLER_NOEC(trap_handler1, 1)
+TRAPHANDLER_NOEC(trap_handler2, 2)
+TRAPHANDLER_NOEC(trap_handler3, 3)
+TRAPHANDLER_NOEC(trap_handler4, 4)
+TRAPHANDLER_NOEC(trap_handler5, 5)
+TRAPHANDLER_NOEC(trap_handler6, 6)
+TRAPHANDLER_NOEC(trap_handler7, 7)
+TRAPHANDLER     (trap_handler8, 8)
+TRAPHANDLER     (trap_handler10, 10)
+TRAPHANDLER     (trap_handler11, 11)
+TRAPHANDLER     (trap_handler12, 12)
+TRAPHANDLER     (trap_handler13, 13)
+TRAPHANDLER     (trap_handler14, 14)
+TRAPHANDLER_NOEC(trap_handler16, 16)
+TRAPHANDLER_NOEC(trap_handler17, 17)
+TRAPHANDLER_NOEC(trap_handler18, 18)
+TRAPHANDLER_NOEC(trap_handler19, 19)
 
+TRAPHANDLER_NOEC(trap_handler48, 48)  // syscall
 
-/*
- * Lab 3: Your code here for _alltraps
- */
-
+_alltraps:
+	pushl %ds
+	pushl %es
+	pushal
+	movl $GD_KD, %eax
+	movw %ax, %ds
+	movw %ax, %es
+	pushl %esp
+	call trap   // trap() never returns
