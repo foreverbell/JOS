@@ -585,6 +585,9 @@ env_run(struct Env *e)
 
 	lcr3(PADDR(e->env_pgdir));
 
+	// Release the kernel big lock just right before restore the trap frame.
+	unlock_kernel();
+
 	env_pop_tf(&e->env_tf);
 
 	panic("env_run never returns");

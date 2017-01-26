@@ -143,6 +143,10 @@ trap_init_percpu(void)
 
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
+	// Notice through entering the kernel needs to hold the big kernel lock,
+	// we still need to separate kernel stack for each CPU, as pushing
+	// registers and frame into kernel stack is not guarded by the kernel
+	// lock.
 	ts->ts_esp0 = KSTACKTOP - cpu_id * (KSTKSIZE + KSTKGAP);
 	ts->ts_ss0 = GD_KD;
 	ts->ts_iomb = sizeof(struct Taskstate);
@@ -281,8 +285,10 @@ trap(struct Trapframe *tf)
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
 		// Acquire the big kernel lock before doing any
-		// serious kernel work.
-		// LAB 4: Your code here.
+		// serious kernel work. lock_kernel() if CPL = 0
+		// may cause deadlock.
+		lock_kernel();
+
 		assert(curenv);
 
 		// Garbage collect if current enviroment is a zombie
