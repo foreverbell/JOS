@@ -193,7 +193,7 @@ mem_init(void)
 	//    - the new image at UPAGES -- kernel R, user R
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
-	boot_map_region(kern_pgdir, UPAGES, pages_size, PADDR(pages), PTE_U | PTE_P);
+	boot_map_region(kern_pgdir, UPAGES, pages_size, PADDR(pages), PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
@@ -201,7 +201,7 @@ mem_init(void)
 	// Permissions:
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
-	boot_map_region(kern_pgdir, UENVS, envs_size, PADDR(envs), PTE_U | PTE_P);
+	boot_map_region(kern_pgdir, UENVS, envs_size, PADDR(envs), PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -213,7 +213,8 @@ mem_init(void)
 	//       the kernel overflows its stack, it will fault rather than
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
-	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W | PTE_P);
+	// Overwritten by mem_init_mp().
+	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
@@ -222,7 +223,7 @@ mem_init(void)
 	// We might not have 2^32 - KERNBASE bytes of physical memory, but
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
-	boot_map_region(kern_pgdir, KERNBASE, ~0u - KERNBASE + 1, 0, PTE_W | PTE_P);
+	boot_map_region(kern_pgdir, KERNBASE, ~0u - KERNBASE + 1, 0, PTE_W);
 
 	// Initialize the SMP-related parts of the memory map
 	mem_init_mp();
@@ -273,8 +274,15 @@ mem_init_mp(void)
 	//             Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	//
-	// LAB 4: Your code here:
+	// This actually overwrites the previously set kernel stack.
 
+	int i;
+	uintptr_t kstacktop = KSTACKTOP;
+
+	for (i = 0; i < NCPU; ++i) {
+		boot_map_region(kern_pgdir, kstacktop - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W);
+		kstacktop -= (KSTKSIZE + KSTKGAP);
+	}
 }
 
 // --------------------------------------------------------------
@@ -292,10 +300,6 @@ mem_init_mp(void)
 void
 page_init(void)
 {
-	// LAB 4:
-	// Change your code to mark the physical page at MPENTRY_PADDR
-	// as in use
-
 	// The example code here marks all physical pages as free.
 	// However this is not truly the case.  What memory is free?
 	//  1) Mark physical page 0 as in use.
@@ -321,6 +325,11 @@ page_init(void)
 
 		// Physical page 0 is in use.
 		if (i == 0) {
+			continue;
+		}
+
+		// Physical page at MPENTRY_PADDR is in use.
+		if (base == MPENTRY_PADDR) {
 			continue;
 		}
 
@@ -457,6 +466,12 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 	size_t offset;
 	pte_t *pte;
 
+	if (va % PGSIZE != 0) {
+		panic("va %08x is not page-aligned.", va);
+	}
+	if (pa % PGSIZE != 0) {
+		panic("pa %08x is not page-aligned.", pa);
+	}
 	for (offset = 0; offset < size; offset += PGSIZE) {
 		pte = pgdir_walk(pgdir, (const void *) (va + offset), true /* create */);
 		if (pte == NULL) {
@@ -607,8 +622,19 @@ mmio_map_region(physaddr_t pa, size_t size)
 	//
 	// Hint: The staff solution uses boot_map_region.
 	//
-	// Your code here:
-	panic("mmio_map_region not implemented");
+
+	if (pa % PGSIZE != 0) {
+		panic("pa %08x is not aligned by PGSIZE.", pa);
+	}
+
+	size = ROUNDUP(size, PGSIZE);
+	if (base + size >= MMIOLIM) {
+		panic("MMIO region exceeds limit.");
+	}
+	boot_map_region(kern_pgdir, base, size, pa, PTE_PCD | PTE_PWT | PTE_W);
+	base += size;
+
+	return (void *) (base - size);
 }
 
 static uintptr_t user_mem_check_addr;

@@ -73,7 +73,7 @@ start32:
 	movl    mpentry_kstack, %esp
 	movl    $0x0, %ebp       # nuke frame pointer
 
-	# Call mp_main().  (Exercise for the reader: why the indirect call?)
+	# Call mp_main(). Use indirect call to avoid relative call.
 	movl    $mp_main, %eax
 	call    *%eax
 
