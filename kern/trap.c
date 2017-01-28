@@ -332,7 +332,7 @@ page_fault_handler(struct Trapframe *tf)
 	fault_va = rcr2();
 
 	// Handle kernel-mode page faults.
-	if ((tf->tf_cs & 0x3) == 0) {
+	if ((tf->tf_cs & 3) == 0) {
 		print_trapframe(tf);
 		panic("page fault in kernel at %08x.", fault_va);
 	}
@@ -368,7 +368,38 @@ page_fault_handler(struct Trapframe *tf)
 	//   To change what the user environment runs, modify 'curenv->env_tf'
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
-	// LAB 4: Your code here.
+	uintptr_t uxstack_top = UXSTACKTOP;
+	struct UTrapframe *utf;
+
+	if (curenv->env_pgfault_upcall != NULL) {
+		assert(&curenv->env_tf == tf);
+
+		// Validate user address.
+		user_mem_assert(curenv, curenv->env_pgfault_upcall, 1, 0);
+
+		// Find the place to store UTrapframe.
+		if (tf->tf_esp >= UXSTACKTOP - PGSIZE && tf->tf_esp < UXSTACKTOP) {
+			uxstack_top = (uintptr_t) tf->tf_esp - 4;  // reverse a dword
+		}
+		utf = ((struct UTrapframe *) uxstack_top) - 1;
+		user_mem_assert(curenv, utf, sizeof(struct UTrapframe), PTE_W);
+
+		// Populate utf.
+		utf->utf_fault_va = fault_va;
+		utf->utf_err = T_PGFLT;
+		utf->utf_regs = tf->tf_regs;
+		utf->utf_eip = tf->tf_eip;
+		utf->utf_eflags = tf->tf_eflags;
+		utf->utf_esp = tf->tf_esp;
+
+		// Branch to curenv->env_pgfault_upcall via env_run(curenv).
+		// This transfer the control from kernel (ring 0) to user (ring 3), so
+		// the pgfault handler is actually running under ring 3.
+		tf->tf_eip = (uintptr_t) curenv->env_pgfault_upcall;
+		tf->tf_esp = (uintptr_t) utf;
+
+		env_run(curenv);  // env_run never returns
+	}
 
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",
