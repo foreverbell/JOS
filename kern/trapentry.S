@@ -70,6 +70,7 @@
  *
  */
 
+// ISRs
 TRAPHANDLER_NOEC(trap_handler0, 0)
 TRAPHANDLER_NOEC(trap_handler1, 1)
 TRAPHANDLER_NOEC(trap_handler2, 2)
@@ -89,7 +90,26 @@ TRAPHANDLER_NOEC(trap_handler17, 17)
 TRAPHANDLER_NOEC(trap_handler18, 18)
 TRAPHANDLER_NOEC(trap_handler19, 19)
 
-TRAPHANDLER_NOEC(trap_handler48, 48)  // syscall
+// IRQs
+TRAPHANDLER_NOEC(trap_handler32, 32)
+TRAPHANDLER_NOEC(trap_handler33, 33)
+TRAPHANDLER_NOEC(trap_handler34, 34)
+TRAPHANDLER_NOEC(trap_handler35, 35)
+TRAPHANDLER_NOEC(trap_handler36, 36)
+TRAPHANDLER_NOEC(trap_handler37, 37)
+TRAPHANDLER_NOEC(trap_handler38, 38)
+TRAPHANDLER_NOEC(trap_handler39, 39)
+TRAPHANDLER_NOEC(trap_handler40, 40)
+TRAPHANDLER_NOEC(trap_handler41, 41)
+TRAPHANDLER_NOEC(trap_handler42, 42)
+TRAPHANDLER_NOEC(trap_handler43, 43)
+TRAPHANDLER_NOEC(trap_handler44, 44)
+TRAPHANDLER_NOEC(trap_handler45, 45)
+TRAPHANDLER_NOEC(trap_handler46, 46)
+TRAPHANDLER_NOEC(trap_handler47, 47)
+
+// syscall
+TRAPHANDLER_NOEC(trap_handler48, 48)
 
 _alltraps:
 	pushl %ds

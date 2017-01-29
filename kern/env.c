@@ -276,7 +276,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	// You will set e->env_tf.tf_eip later.
 
 	// Enable interrupts while in user mode.
-	// LAB 4: Your code here.
+	e->env_tf.tf_eflags |= FL_IF;
 
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
@@ -421,7 +421,7 @@ load_icode(struct Env *e, uint8_t *binary)
 
 	// Initialize entry point (eip) and eflags.
 	e->env_tf.tf_eip = eh->e_entry;
-	e->env_tf.tf_eflags = eh->e_flags;
+	e->env_tf.tf_eflags |= eh->e_flags;
 
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.

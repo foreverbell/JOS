@@ -64,6 +64,7 @@ static const char *trapname(int trapno)
 	return "(unknown trap)";
 }
 
+// ISRs
 void trap_handler0();
 void trap_handler1();
 void trap_handler2();
@@ -82,13 +83,32 @@ void trap_handler16();
 void trap_handler17();
 void trap_handler18();
 void trap_handler19();
+
+// IRQs
+void trap_handler32();
+void trap_handler33();
+void trap_handler34();
+void trap_handler35();
+void trap_handler36();
+void trap_handler37();
+void trap_handler38();
+void trap_handler39();
+void trap_handler40();
+void trap_handler41();
+void trap_handler42();
+void trap_handler43();
+void trap_handler44();
+void trap_handler45();
+void trap_handler46();
+void trap_handler47();
+
+// syscall
 void trap_handler48();
 
 void
 trap_init(void)
 {
-	extern struct Segdesc gdt[];
-
+	// Install ISRs.
 	SETGATE(idt[T_DIVIDE], 0, GD_KT, trap_handler0, 0);
 	SETGATE(idt[T_DEBUG], 0, GD_KT, trap_handler1, 0);
 	SETGATE(idt[T_NMI], 0, GD_KT, trap_handler2, 0);
@@ -107,6 +127,26 @@ trap_init(void)
 	SETGATE(idt[T_ALIGN], 0, GD_KT, trap_handler17, 0);
 	SETGATE(idt[T_MCHK], 0, GD_KT, trap_handler18, 0);
 	SETGATE(idt[T_SIMDERR], 0, GD_KT, trap_handler19, 0);
+
+	// Install IRQs.
+	SETGATE(idt[IRQ_OFFSET +  0], 0, GD_KT, trap_handler32, 0);
+	SETGATE(idt[IRQ_OFFSET +  1], 0, GD_KT, trap_handler33, 0);
+	SETGATE(idt[IRQ_OFFSET +  2], 0, GD_KT, trap_handler34, 0);
+	SETGATE(idt[IRQ_OFFSET +  3], 0, GD_KT, trap_handler35, 0);
+	SETGATE(idt[IRQ_OFFSET +  4], 0, GD_KT, trap_handler36, 0);
+	SETGATE(idt[IRQ_OFFSET +  5], 0, GD_KT, trap_handler37, 0);
+	SETGATE(idt[IRQ_OFFSET +  6], 0, GD_KT, trap_handler38, 0);
+	SETGATE(idt[IRQ_OFFSET +  7], 0, GD_KT, trap_handler39, 0);
+	SETGATE(idt[IRQ_OFFSET +  8], 0, GD_KT, trap_handler40, 0);
+	SETGATE(idt[IRQ_OFFSET +  9], 0, GD_KT, trap_handler41, 0);
+	SETGATE(idt[IRQ_OFFSET + 10], 0, GD_KT, trap_handler42, 0);
+	SETGATE(idt[IRQ_OFFSET + 11], 0, GD_KT, trap_handler43, 0);
+	SETGATE(idt[IRQ_OFFSET + 12], 0, GD_KT, trap_handler44, 0);
+	SETGATE(idt[IRQ_OFFSET + 13], 0, GD_KT, trap_handler45, 0);
+	SETGATE(idt[IRQ_OFFSET + 14], 0, GD_KT, trap_handler46, 0);
+	SETGATE(idt[IRQ_OFFSET + 15], 0, GD_KT, trap_handler47, 0);
+
+	// Syscall.
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, trap_handler48, 3);
 
 	// Per-CPU setup 
@@ -242,14 +282,17 @@ trap_dispatch(struct Trapframe *tf)
 	// The hardware sometimes raises these because of noise on the
 	// IRQ line or other reasons. We don't care.
 	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
-		cprintf("Spurious interrupt on irq 7\n");
 		print_trapframe(tf);
 		return;
 	}
 
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
-	// LAB 4: Your code here.
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+		lapic_eoi();
+		sched_yield();
+		return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
