@@ -351,8 +351,56 @@ sys_page_unmap(envid_t envid, void *va)
 static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
-	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+	struct Env *env = NULL;
+	struct PageInfo *page;
+	pte_t *pte = 0;
+
+	// Intentionly to set checkperm as false.
+	if (envid2env(envid, &env, false /* checkperm */) < 0) {
+		return -E_BAD_ENV;
+	}
+
+	if (!env->env_ipc_recving) {
+		return -E_IPC_NOT_RECV;
+	}
+
+	if ((uint32_t) srcva < UTOP) {
+		if ((uint32_t) srcva % PGSIZE != 0) {
+			return -E_INVAL;
+		}
+		// Permission follows the same rule as described in sys_page_alloc.
+		if ((perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P)) {
+			return -E_INVAL;
+		}
+		if (perm & ~(PTE_U | PTE_P | PTE_AVAIL | PTE_W)) {
+			return -E_INVAL;
+		}
+		// srcva is not mapped.
+		page = page_lookup(curenv->env_pgdir, srcva, &pte);
+		if (page == NULL) {
+			return -E_INVAL;
+		}
+		// Mapping a read-only page as writable is invalid.
+		if ((perm & PTE_W) && (~(*pte) & PTE_W)) {
+			return -E_INVAL;
+		}
+	}
+
+	env->env_ipc_recving = false;
+	env->env_ipc_from = curenv->env_id;
+	env->env_ipc_value = value;
+	if ((uint32_t) srcva < UTOP && (uint32_t) env->env_ipc_dstva < UTOP) {
+		env->env_ipc_perm = perm;
+		if (page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm) < 0) {
+			return -E_NO_MEM;
+		}
+	} else {
+		env->env_ipc_perm = 0;
+	}
+
+	env->env_status = ENV_RUNNABLE;
+
+	return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -369,8 +417,29 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 static int
 sys_ipc_recv(void *dstva)
 {
-	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
+	assert(curenv != NULL);
+	assert(!curenv->env_ipc_recving);
+
+	// Mark env_ipc_recving as 1 to indicate that we are ready for IPC.
+	if ((uint32_t) dstva < UTOP) {
+		if ((uint32_t) dstva % PGSIZE != 0) {
+			return -E_INVAL;
+		}
+		curenv->env_ipc_dstva = dstva;
+	} else {
+		curenv->env_ipc_dstva = NULL;
+	}
+
+	curenv->env_ipc_recving = true;
+
+	// Mark ourselves not runnable to block ourselves for IPC.
+	curenv->env_status = ENV_NOT_RUNNABLE;
+
+	// Give up the CPU.
+	do {
+		sys_yield();
+	} while (curenv->env_ipc_recving);
+
 	return 0;
 }
 
@@ -380,6 +449,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 {
 	// Call the function corresponding to the 'syscallno' parameter.
 	// Return any appropriate return value.
+
+	if (syscallno >= NSYSCALLS) {
+		return -E_INVAL;
+	}
 
 	switch (syscallno) {
 	case SYS_cputs:
@@ -406,6 +479,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_page_unmap((envid_t) a1, (void *) a2);
 	case SYS_env_set_pgfault_upcall:
 		return sys_env_set_pgfault_upcall((envid_t) a1, (void *) a2);
+	case SYS_ipc_try_send:
+		return sys_ipc_try_send((envid_t) a1, (uint32_t) a2, (void *) a3, (unsigned) a4);
+	case SYS_ipc_recv:
+		return sys_ipc_recv((void *) a1);
 	default:
 		panic("undispatched syscall.");
 		return -E_INVAL;
