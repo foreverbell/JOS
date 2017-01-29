@@ -435,12 +435,13 @@ sys_ipc_recv(void *dstva)
 	// Mark ourselves not runnable to block ourselves for IPC.
 	curenv->env_status = ENV_NOT_RUNNABLE;
 
-	// Give up the CPU.
-	do {
-		sys_yield();
-	} while (curenv->env_ipc_recving);
+	// sys_yield() never returns, set return value as 0 in eax.
+	curenv->env_tf.tf_regs.reg_eax = 0;
 
-	return 0;
+	// Give up the CPU.
+	sys_yield();
+
+	panic("sys_yield never returns.");
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
