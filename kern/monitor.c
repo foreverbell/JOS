@@ -74,13 +74,16 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 
 		cprintf("  ebp %08x  eip %08x  args", old_ebp, old_eip);
 		for (int i = 0; i < 5; ++i) {
+			if (ebp + 8 + 4 * i == USTACKTOP) {
+				break;
+			}
 			cprintf(" %08x", *(uint32_t *) (ebp + 8 + 4 * i));
 		}
 
 		memset(&info, 0, sizeof(info));
 		debuginfo_eip(old_eip, &info);
 		
-		cprintf("         %s:%d: ", info.eip_file, info.eip_line);
+		cprintf("\n         %s:%d: ", info.eip_file, info.eip_line);
 		for (i = 0; i < info.eip_fn_namelen; ++i) {
 			cprintf("%c", info.eip_fn_name[i]);
 		}
