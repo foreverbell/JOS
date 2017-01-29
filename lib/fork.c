@@ -48,7 +48,7 @@ pgfault(struct UTrapframe *utf)
 	addr = ROUNDDOWN(addr, PGSIZE);
 
 	if ((r = sys_page_alloc(0, PFTEMP, PTE_P | PTE_U | PTE_W)) < 0) {
-		panic("sys_page_alloc: %e.", r);
+		panic("sys_page_alloc fails: %e.", r);
 	}
 
 	memmove(PFTEMP, addr, PGSIZE);
@@ -59,11 +59,11 @@ pgfault(struct UTrapframe *utf)
 	}
 
 	if ((r = sys_page_map(0, PFTEMP, 0, addr, perm)) < 0) {
-		panic("sys_page_map: %e.", r);
+		panic("sys_page_map fails: %e.", r);
 	}
 
 	if ((r = sys_page_unmap(0, PFTEMP)) < 0) {
-		panic("sys_page_unmap: %e.", r);
+		panic("sys_page_unmap fails: %e.", r);
 	}
 }
 
@@ -91,16 +91,16 @@ duppage(envid_t envid, unsigned pn)
 		}
 
 		if ((r = sys_page_map(0, va, envid, va, perm)) < 0) {
-			panic("sys_page_map: %e.", r);
+			panic("sys_page_map fails: %e.", r);
 			return r;
 		}
 		if ((r = sys_page_map(0, va, 0, va, perm)) < 0) {
-			panic("sys_page_map: %e.", r);
+			panic("sys_page_map fails: %e.", r);
 			return r;
 		}
 	} else {
 		if ((r = sys_page_map(0, va, envid, va, uvpt[pn] & PTE_SYSCALL)) < 0) {
-			panic("sys_page_map: %e.", r);
+			panic("sys_page_map fails: %e.", r);
 			return r;
 		}
 	}
@@ -147,19 +147,19 @@ fork(void)
 			}
 			if ((uvpd[PDX(page_va)] & PTE_P) && (uvpt[PGNUM(page_va)] & PTE_P)) {
 				if ((r = duppage(envid, PGNUM(page_va))) < 0) {
-					panic("duppage: %e\n", r);
+					panic("duppage fails: %e\n", r);
 				}
 			}
 		}
 
 		// Setup user exception stack for child.
 		if ((r = sys_page_alloc(envid, (void *) (UXSTACKTOP - PGSIZE), PTE_P | PTE_U | PTE_W)) < 0) {
-			panic("sys_page_alloc: %e\n", r);
+			panic("sys_page_alloc fails: %e\n", r);
 		}
 
 		// Setup pgfault_handler for child.
 		if ((r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall)) < 0) {
-			panic("sys_env_set_pgfault_upcall: %e\n", r);
+			panic("sys_env_set_pgfault_upcall fails: %e\n", r);
 		}
 
 		// Note: We can't move down setting pgfault_handler into child env,
@@ -168,7 +168,7 @@ fork(void)
 
 		// Mark child environment as runnable.
 		if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0) {
-			panic("sys_env_set_status: %e\n", r);
+			panic("sys_env_set_status fails: %e\n", r);
 		}
 	} else { // child
 		thisenv = envs + ENVX(sys_getenvid());
