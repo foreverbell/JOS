@@ -1,6 +1,11 @@
 // test user-level fault handler -- alloc pages to fix faults
 // doesn't work because we sys_cputs instead of cprintf (exercise: why?)
 
+// Answer: sys_cputs does dereferencing in kernel mode (of course with a
+// user_mem_check guard), while cprintf will do dereferencing before entering
+// the kernel. In latter case, reading from an invalid address will cause page
+// fault.
+
 #include <inc/lib.h>
 
 void

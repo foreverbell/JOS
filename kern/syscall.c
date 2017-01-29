@@ -259,13 +259,12 @@ sys_page_map(envid_t srcenvid, void *srcva,
 		return -E_INVAL;
 	}
 
-	// No extra permissions for env's PDE below UTOP, so it is safe to just use
-	// PDE's page permission.
 	page = page_lookup(srcenv->env_pgdir, srcva, &pte);
 	if (page == NULL) {
 		return -E_INVAL;
 	}
 
+	// Permissions on PDE below UTOP are all P|U|W.
 	// Permission follows the same rule as described in sys_page_alloc.
 	if ((perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P)) {
 		return -E_INVAL;
@@ -274,7 +273,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
 		return -E_INVAL;
 	}
 
-	// Mapping a read-only page as writable.
+	// Mapping a read-only page as writable is invalid.
 	if ((perm & PTE_W) && (~(*pte) & PTE_W)) {
 		return -E_INVAL;
 	}

@@ -379,14 +379,15 @@ page_fault_handler(struct Trapframe *tf)
 
 		// Find the place to store UTrapframe.
 		if (tf->tf_esp >= UXSTACKTOP - PGSIZE && tf->tf_esp < UXSTACKTOP) {
-			uxstack_top = (uintptr_t) tf->tf_esp - 4;  // reverse a dword
+			// Reverse a dword for _pgfault_upcall to ret.
+			uxstack_top = (uintptr_t) tf->tf_esp - 4;
 		}
 		utf = ((struct UTrapframe *) uxstack_top) - 1;
 		user_mem_assert(curenv, utf, sizeof(struct UTrapframe), PTE_W);
 
 		// Populate utf.
 		utf->utf_fault_va = fault_va;
-		utf->utf_err = T_PGFLT;
+		utf->utf_err = tf->tf_err;
 		utf->utf_regs = tf->tf_regs;
 		utf->utf_eip = tf->tf_eip;
 		utf->utf_eflags = tf->tf_eflags;

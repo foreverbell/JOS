@@ -192,6 +192,10 @@ env_setup_vm(struct Env *e)
 
 	e->env_pgdir = page2kva(p);
 
+	// Note: Only PDEs above UTOP have permissions rather than P|W|U, so we
+	// don't need to care about permissions on PDE when we are manipulating
+	// page table of user memory.
+
 	// UENVS: user R
 	e->env_pgdir[PDX(UENVS)] = PTE_ADDR(kern_pgdir[PDX(UENVS)]) | PTE_P | PTE_U;
 
