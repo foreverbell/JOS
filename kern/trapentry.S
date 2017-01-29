@@ -98,5 +98,6 @@ _alltraps:
 	movl $GD_KD, %eax
 	movw %ax, %ds
 	movw %ax, %es
+	movl $0, %ebp  // nuke frame pointer
 	pushl %esp
-	call trap   // trap() never returns
+	call trap      // trap() never returns
