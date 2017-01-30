@@ -443,6 +443,8 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 			return NULL;
 		}
 		new_page->pp_ref += 1;
+		// The loose restriction on PDE permission is also needed for users to
+		// access page tables via 'uvpt'.
 		pgdir[PDX(va)] = page2pa(new_page) | PTE_P | PTE_W | PTE_U;
 		return ((pte_t *) page2kva(new_page)) + PTX(va);
 	}
@@ -514,7 +516,10 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	if ((pte = pgdir_walk(pgdir, va, true /* create */)) == NULL) {
 		return -E_NO_MEM;
 	}
+
+	// Increase reference count first in case page_remove() removes that page.
 	pp->pp_ref += 1;
+
 	if ((*pte) & PTE_P) {
 		// page_remove will clear the corresponding page table entry.
 		page_remove(pgdir, va);	
