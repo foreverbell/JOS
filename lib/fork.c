@@ -84,11 +84,16 @@ duppage(envid_t envid, unsigned pn)
 	int r, perm = 0;
 	void *va = (void *) (pn * PGSIZE);
 
-	if ((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)) {
-		perm = PTE_P | PTE_COW;
-		if (uvpt[pn] & PTE_U) {
-			perm |= PTE_U;
+	if (uvpt[pn] & PTE_SHARE) {
+		perm = (uvpt[pn] & PTE_SYSCALL) | PTE_P;
+
+		if ((r = sys_page_map(0, va, envid, va, perm)) < 0) {
+			panic("sys_page_map fails: %e.", r);
+			return r;
 		}
+	} else if ((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)) {
+		perm = (uvpt[pn] & PTE_SYSCALL) | PTE_P | PTE_COW;
+		perm &= ~PTE_W; // read-only
 
 		if ((r = sys_page_map(0, va, envid, va, perm)) < 0) {
 			panic("sys_page_map fails: %e.", r);
