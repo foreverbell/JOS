@@ -250,7 +250,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Set the basic status variables.
 	e->env_parent_id = parent_id;
-	e->env_type = ENV_TYPE_USER;
+	e->env_type = ENV_TYPE_USER;  // override in env_create
 	e->env_status = ENV_RUNNABLE;
 	e->env_runs = 0;
 
@@ -423,6 +423,9 @@ load_icode(struct Env *e, uint8_t *binary)
 	e->env_tf.tf_eip = eh->e_entry;
 	e->env_tf.tf_eflags |= eh->e_flags;
 
+	// TODO: eflags sanity check?
+	e->env_tf.tf_eflags &= ~FL_IOPL_MASK;
+
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 	region_alloc(e, (void *) (USTACKTOP - PGSIZE), PGSIZE);
@@ -452,7 +455,9 @@ env_create(uint8_t *binary, enum EnvType type)
 	env->env_type = type;
 
 	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
-	// LAB 5: Your code here.
+	if (type == ENV_TYPE_FS) {
+		env->env_tf.tf_eflags |= FL_IOPL_3;
+	}
 }
 
 //
