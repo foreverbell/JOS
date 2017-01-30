@@ -423,9 +423,6 @@ load_icode(struct Env *e, uint8_t *binary)
 	e->env_tf.tf_eip = eh->e_entry;
 	e->env_tf.tf_eflags |= eh->e_flags;
 
-	// TODO: eflags sanity check?
-	e->env_tf.tf_eflags &= ~FL_IOPL_MASK;
-
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 	region_alloc(e, (void *) (USTACKTOP - PGSIZE), PGSIZE);
