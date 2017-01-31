@@ -66,7 +66,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 
 	cprintf("Stack backtrace:\n");
 	
-	if ((tf->tf_cs & 3) == 0) { // trapped from kernel
+	if (tf == NULL || (tf->tf_cs & 3) == 0) { // trapped from kernel
 		ebp = read_ebp();
 	} else {
 		ebp = tf->tf_regs.reg_ebp;
