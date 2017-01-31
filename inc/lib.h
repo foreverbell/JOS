@@ -55,6 +55,12 @@ int	sys_ipc_try_send(envid_t to_env, uint32_t value, void *pg, int perm);
 int	sys_ipc_recv(void *rcv_pg);
 
 // This must be inlined.  Exercise for reader: why?
+// Answer: inlining 'sys_exofork' is necessary to implement copy-on-write fork.
+// There is a gap between sys_exofork() returns in parent and parent's page
+// table is duplicated to child. If this function is not getting inlined, when
+// child returns from sys_exofork(), it will encounter a corrupt stack frame, as
+// parent destroys the stack by popping the stack frame before it finishes
+// marking the page copy-on-write.
 static inline envid_t __attribute__((always_inline))
 sys_exofork(void)
 {
