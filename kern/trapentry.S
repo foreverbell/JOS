@@ -44,13 +44,80 @@
 
 .text
 
-/*
- * Lab 3: Your code here for generating entry points for the different traps.
+/* 
+ * https://pdos.csail.mit.edu/6.828/2016/readings/i386/s09_10.htm
+ *
+ * Table 9-7. Error-Code Summary
+ * 
+ * Description                       Interrupt     Error Code
+ * Number
+ * 
+ * Divide error                       0            No
+ * Debug exceptions                   1            No
+ * Breakpoint                         3            No
+ * Overflow                           4            No
+ * Bounds check                       5            No
+ * Invalid opcode                     6            No
+ * Coprocessor not available          7            No
+ * System error                       8            Yes (always 0)
+ * Invalid TSS                       10            Yes
+ * Segment not present               11            Yes
+ * Stack exception                   12            Yes
+ * General protection fault          13            Yes
+ * Page fault                        14            Yes
+ * Coprocessor error                 16            No
+ * Two-byte SW interrupt             0-255         No
+ *
  */
 
+// ISRs
+TRAPHANDLER_NOEC(trap_handler0, 0)
+TRAPHANDLER_NOEC(trap_handler1, 1)
+TRAPHANDLER_NOEC(trap_handler2, 2)
+TRAPHANDLER_NOEC(trap_handler3, 3)
+TRAPHANDLER_NOEC(trap_handler4, 4)
+TRAPHANDLER_NOEC(trap_handler5, 5)
+TRAPHANDLER_NOEC(trap_handler6, 6)
+TRAPHANDLER_NOEC(trap_handler7, 7)
+TRAPHANDLER     (trap_handler8, 8)
+TRAPHANDLER     (trap_handler10, 10)
+TRAPHANDLER     (trap_handler11, 11)
+TRAPHANDLER     (trap_handler12, 12)
+TRAPHANDLER     (trap_handler13, 13)
+TRAPHANDLER     (trap_handler14, 14)
+TRAPHANDLER_NOEC(trap_handler16, 16)
+TRAPHANDLER_NOEC(trap_handler17, 17)
+TRAPHANDLER_NOEC(trap_handler18, 18)
+TRAPHANDLER_NOEC(trap_handler19, 19)
 
+// IRQs
+TRAPHANDLER_NOEC(trap_handler32, 32)
+TRAPHANDLER_NOEC(trap_handler33, 33)
+TRAPHANDLER_NOEC(trap_handler34, 34)
+TRAPHANDLER_NOEC(trap_handler35, 35)
+TRAPHANDLER_NOEC(trap_handler36, 36)
+TRAPHANDLER_NOEC(trap_handler37, 37)
+TRAPHANDLER_NOEC(trap_handler38, 38)
+TRAPHANDLER_NOEC(trap_handler39, 39)
+TRAPHANDLER_NOEC(trap_handler40, 40)
+TRAPHANDLER_NOEC(trap_handler41, 41)
+TRAPHANDLER_NOEC(trap_handler42, 42)
+TRAPHANDLER_NOEC(trap_handler43, 43)
+TRAPHANDLER_NOEC(trap_handler44, 44)
+TRAPHANDLER_NOEC(trap_handler45, 45)
+TRAPHANDLER_NOEC(trap_handler46, 46)
+TRAPHANDLER_NOEC(trap_handler47, 47)
 
-/*
- * Lab 3: Your code here for _alltraps
- */
+// syscall
+TRAPHANDLER_NOEC(trap_handler48, 48)
 
+_alltraps:
+	pushl %ds
+	pushl %es
+	pushal
+	movl $GD_KD, %eax
+	movw %ax, %ds
+	movw %ax, %es
+	movl $0, %ebp  // nuke frame pointer
+	pushl %esp
+	call trap      // trap() never returns
