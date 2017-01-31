@@ -28,9 +28,14 @@ struct pci_driver pci_attach_class[] = {
 	{ 0, 0, 0 },
 };
 
+#define PCI_82540EM_VENDOR  0x8086
+#define PCI_82540EM_DEVICE  0x100e
+
+
 // pci_attach_vendor matches the vendor ID and device ID of a PCI device. key1
 // and key2 should be the vendor ID and device ID respectively
 struct pci_driver pci_attach_vendor[] = {
+	{ PCI_82540EM_VENDOR, PCI_82540EM_DEVICE, &pci_e1000_attach },
 	{ 0, 0, 0 },
 };
 
