@@ -143,7 +143,7 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 {
 	// Remember to check whether the user has supplied us with a good
 	// address!
-	user_mem_assert(curenv, tf, sizeof(struct Trapframe), 0);
+	user_mem_assert(curenv, tf, sizeof(struct Trapframe), PTE_W);
 
 	struct Env *env = NULL;
 
@@ -500,6 +500,33 @@ sys_transmit_packet(uint8_t *buf, size_t len)
 	return e1000_transmit(buf, len);
 }
 
+// Receive a network packet.
+//
+// Return 0 on success, < 0 on error.
+// Errors are:
+// 	-E_RX_QUEUE_EMPTY if receive queue is empty.
+// 	-E_BUF_TOO_SMALL if buffer is too small.
+static int
+sys_receive_packet(uint8_t *buf, size_t len, size_t *len_store)
+{
+	ssize_t r;
+
+	user_mem_assert(curenv, buf, len, PTE_W);
+
+	if (len_store != NULL) {
+		user_mem_assert(curenv, buf, sizeof(size_t), PTE_W);
+	}
+
+	r = e1000_receive(buf, len);
+	if (r < 0) {
+		return r;
+	}
+
+	if (len_store != NULL) {
+		*len_store = r;
+	}
+	return 0;
+}
 
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
@@ -547,6 +574,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_time_msec();
 	case SYS_transmit_packet:
 		return sys_transmit_packet((uint8_t *) a1, (size_t) a2);
+	case SYS_receive_packet:
+		return sys_receive_packet((uint8_t *) a1, (size_t) a2, (size_t *) a3);
 	default:
 		panic("undispatched syscall.");
 		return -E_INVAL;

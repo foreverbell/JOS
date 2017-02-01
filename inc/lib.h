@@ -61,6 +61,7 @@ int	sys_ipc_try_send(envid_t to_env, uint32_t value, void *pg, int perm);
 int	sys_ipc_recv(void *rcv_pg);
 unsigned int sys_time_msec(void);
 int	sys_transmit_packet(uint8_t *buf, size_t len);
+int	sys_receive_packet(uint8_t *buf, size_t len, size_t *len_store);
 
 // This must be inlined.  Exercise for reader: why?
 // Answer: inlining 'sys_exofork' is necessary to implement copy-on-write fork.

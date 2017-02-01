@@ -128,3 +128,9 @@ sys_transmit_packet(uint8_t *buf, size_t len)
 {
 	return syscall(SYS_transmit_packet, 1, (uint32_t)buf, (uint32_t)len, 0, 0, 0);
 }
+
+int
+sys_receive_packet(uint8_t *buf, size_t len, size_t *len_store)
+{
+	return syscall(SYS_receive_packet, 0, (uint32_t)buf, (uint32_t)len, (uint32_t)len_store, 0, 0);
+}
