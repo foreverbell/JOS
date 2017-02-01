@@ -102,7 +102,8 @@ struct e1000_tx_desc e1000_txd[MAXTXD];
 packet_t tx_buf[MAXTXD];
 
 int
-e1000_attach(struct pci_func *f) {
+e1000_attach(struct pci_func *f)
+{
 	int i;
 
 	pci_func_enable(f);
@@ -150,14 +151,15 @@ e1000_attach(struct pci_func *f) {
 }
 
 int
-e1000_transmit(uint8_t *buf, size_t len) {
+e1000_transmit(uint8_t *buf, size_t len)
+{
 	uint32_t tail;
 
 	if (len > MAXTXBUF) {
 		return -E_PACKET_TOO_BIG;
 	}
 
-	tail =	e1000[E1000_TDT >> 2];
+	tail = e1000[E1000_TDT >> 2];
 
 	if (~e1000_txd[tail].upper.data & E1000_TXD_STAT_DD) {
 		return -E_TX_QUEUE_FULL;

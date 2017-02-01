@@ -12,6 +12,7 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 #include <kern/time.h>
+#include <kern/e1000.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -485,6 +486,21 @@ sys_time_msec(void)
 	return time_msec();
 }
 
+// Transmit a network packet.
+//
+// Returns 0 on success, < 0 on error.
+// Errors are:
+//	-E_PACKET_TOO_BIG if packet is too big.
+//	-E_TX_QUEUE_FULL if transmission queue is full.
+static int
+sys_transmit_packet(uint8_t *buf, size_t len)
+{
+	user_mem_assert(curenv, buf, len, 0);
+
+	return e1000_transmit(buf, len);
+}
+
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -529,6 +545,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_env_set_trapframe((envid_t) a1, (struct Trapframe *) a2);
 	case SYS_time_msec:
 		return sys_time_msec();
+	case SYS_transmit_packet:
+		return sys_transmit_packet((uint8_t *) a1, (size_t) a2);
 	default:
 		panic("undispatched syscall.");
 		return -E_INVAL;
