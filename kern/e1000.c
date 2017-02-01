@@ -65,21 +65,21 @@
 #define E1000_TXD_DTYP_C     0x00000000 /* Context Descriptor */
 #define E1000_TXD_POPTS_IXSM 0x01       /* Insert IP checksum */
 #define E1000_TXD_POPTS_TXSM 0x02       /* Insert TCP/UDP checksum */
-#define E1000_TXD_CMD_EOP    0x01000000 /* End of Packet */
-#define E1000_TXD_CMD_IFCS   0x02000000 /* Insert FCS (Ethernet CRC) */
-#define E1000_TXD_CMD_IC     0x04000000 /* Insert Checksum */
-#define E1000_TXD_CMD_RS     0x08000000 /* Report Status */
-#define E1000_TXD_CMD_RPS    0x10000000 /* Report Packet Sent */
-#define E1000_TXD_CMD_DEXT   0x20000000 /* Descriptor extension (0 = legacy) */
-#define E1000_TXD_CMD_VLE    0x40000000 /* Add VLAN tag */
-#define E1000_TXD_CMD_IDE    0x80000000 /* Enable Tidv register */
+#define E1000_TXD_CMD_EOP    0x01       /* End of Packet */
+#define E1000_TXD_CMD_IFCS   0x02       /* Insert FCS (Ethernet CRC) */
+#define E1000_TXD_CMD_IC     0x04       /* Insert Checksum */
+#define E1000_TXD_CMD_RS     0x08       /* Report Status */
+#define E1000_TXD_CMD_RPS    0x10       /* Report Packet Sent */
+#define E1000_TXD_CMD_DEXT   0x20       /* Descriptor extension (0 = legacy) */
+#define E1000_TXD_CMD_VLE    0x40       /* Add VLAN tag */
+#define E1000_TXD_CMD_IDE    0x80       /* Enable Tidv register */
 #define E1000_TXD_STAT_DD    0x00000001 /* Descriptor Done */
 #define E1000_TXD_STAT_EC    0x00000002 /* Excess Collisions */
 #define E1000_TXD_STAT_LC    0x00000004 /* Late Collisions */
 #define E1000_TXD_STAT_TU    0x00000008 /* Transmit underrun */
-#define E1000_TXD_CMD_TCP    0x01000000 /* TCP packet */
-#define E1000_TXD_CMD_IP     0x02000000 /* IP packet */
-#define E1000_TXD_CMD_TSE    0x04000000 /* TCP Seg enable */
+#define E1000_TXD_CMD_TCP    0x01       /* TCP packet */
+#define E1000_TXD_CMD_IP     0x02       /* IP packet */
+#define E1000_TXD_CMD_TSE    0x04       /* TCP Seg enable */
 #define E1000_TXD_STAT_TC    0x00000004 /* Tx Underrun */
 
 /* Receive Control */
@@ -141,32 +141,22 @@
 
 /* Transmit Descriptor */
 struct e1000_tx_desc {
-	uint64_t buffer_addr;       /* Address of the descriptor's data buffer */
-	union {
-		uint32_t data;
-		struct {
-			uint16_t length;    /* Data buffer length */
-			uint8_t cso;        /* Checksum offset */
-			uint8_t cmd;        /* Descriptor control */
-		} flags;
-	} lower;
-	union {
-		uint32_t data;
-		struct {
-			uint8_t status;	    /* Descriptor status */
-			uint8_t css;        /* Checksum start */
-			uint16_t special;
-		} fields;
-	} upper;
+	uint64_t buffer_addr; /* Address of the descriptor's data buffer */
+	uint16_t length;      /* Data buffer length */
+	uint8_t cso;          /* Checksum offset */
+	uint8_t cmd;          /* Descriptor control */
+	uint8_t status;	      /* Descriptor status */
+	uint8_t css;          /* Checksum start */
+	uint16_t special;
 } __attribute__((packed));
 
 /* Receive Descriptor */
 struct e1000_rx_desc {
 	uint64_t buffer_addr; /* Address of the descriptor's data buffer */
-	uint16_t length;     /* Length of data DMAed into data buffer */
-	uint16_t csum;       /* Packet checksum */
-	uint8_t status;      /* Descriptor status */
-	uint8_t errors;      /* Descriptor Errors */
+	uint16_t length;      /* Length of data DMAed into data buffer */
+	uint16_t csum;        /* Packet checksum */
+	uint8_t status;       /* Descriptor status */
+	uint8_t errors;       /* Descriptor Errors */
 	uint16_t special;
 } __attribute__((packed));
 
@@ -179,7 +169,6 @@ typedef struct {
 } rx_packet_t;
 
 physaddr_t e1000addr;
-size_t e1000size;
 volatile uint32_t *e1000;
 
 __attribute__((__aligned__(16)))
@@ -198,9 +187,7 @@ e1000_attach(struct pci_func *f)
 	pci_func_enable(f);
 
 	e1000addr = (physaddr_t) f->reg_base[0];
-	e1000size = (size_t) f->reg_size[0];
-
-	e1000 = (uint32_t *) mmio_map_region(e1000addr, e1000size);
+	e1000 = (uint32_t *) mmio_map_region(e1000addr, (size_t) f->reg_size[0]);
 
 	// Check E1000 status register to ensure MMIO memory is mapped correctly.
 	// 0x80080783 indicates a full duplex link is up at 1000 MB/s, among other
@@ -235,8 +222,8 @@ e1000_attach(struct pci_func *f)
 
 	for (i = 0; i < MAXTXD; ++i) {
 		e1000_txd[i].buffer_addr = PADDR(&tx_buf[i]);
-		e1000_txd[i].lower.data |= E1000_TXD_CMD_RS;
-		e1000_txd[i].upper.data |= E1000_TXD_STAT_DD;
+		e1000_txd[i].cmd |= E1000_TXD_CMD_RS;
+		e1000_txd[i].status |= E1000_TXD_STAT_DD;
 	}
 
 	// Receive initialization.
@@ -282,17 +269,17 @@ e1000_transmit(uint8_t *buf, size_t len)
 
 	tail = e1000[E1000_TDT >> 2];
 
-	if (~e1000_txd[tail].upper.data & E1000_TXD_STAT_DD) {
+	if (~e1000_txd[tail].status & E1000_TXD_STAT_DD) {
 		return -E_TX_QUEUE_FULL;
 	}
 
 	// Copy data into kernel buffer.
 	memcpy(&tx_buf[tail].buf, buf, len);
-	e1000_txd[tail].lower.flags.length = len;
+	e1000_txd[tail].length = len;
 	
 	// Clear DD flag and set EOP flag.
-	e1000_txd[tail].upper.data &= ~E1000_TXD_STAT_DD;
-	e1000_txd[tail].lower.data |= E1000_TXD_CMD_EOP;
+	e1000_txd[tail].status &= ~E1000_TXD_STAT_DD;
+	e1000_txd[tail].cmd |= E1000_TXD_CMD_EOP;
 
 	// Increase tail pointer.
 	e1000[E1000_TDT >> 2] = (tail + 1) % MAXTXD;
