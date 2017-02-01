@@ -19,7 +19,16 @@ input(envid_t ns_envid)
 
 	buf = (uint8_t *) nsipcbuf.pkt.jp_data;
 
-	memset(buf, 0, 1518); // warm
+	// Warm up the nsipc buffer.
+	// This is actually a drawback of current JOS, as JOS is an exokernel
+	// which handles copy-on-write and page fault in user mode. The input
+	// environment is forked from network server, 'nsipcbuf' is a COW page,
+	// but the kernel does not handle the COW page correctly when validating
+	// buffer from user in syscall (directly writing to COW memory in kernel
+	// will lead to unrecoverable page fault).
+	// FIXME: A possible fix is to modify user_mem_assert to make it
+	// copy-on-write-aware.
+	memset(buf, 0, 1518);
 
 	while (true) {
 		while ((r = sys_receive_packet(buf, 1518, &len_store)) < 0) {
