@@ -33,9 +33,15 @@ sched_yield(void)
 	lastenv = NENV - 1;
 	if (curenv != NULL) {
 		lastenv = ENVX(curenv->env_id);
+		if (envs[lastenv].env_status == ENV_NOT_RUNNABLE && envs[lastenv].env_ipc.ipc_status == IPC_BLOCKED_BY_SEND) {
+			env_send_ipc(&envs[lastenv]);
+		}
 	}
 
 	for (i = (lastenv + 1) % NENV; i != lastenv; i = (i + 1) % NENV) {
+		if (envs[i].env_status == ENV_NOT_RUNNABLE && envs[i].env_ipc.ipc_status == IPC_BLOCKED_BY_SEND) {
+			env_send_ipc(&envs[i]);
+		}
 		if (envs[i].env_status == ENV_RUNNABLE) {
 			idle = &envs[i];
 			break;
