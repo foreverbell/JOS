@@ -40,13 +40,13 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 	}
 
 	if (from_env_store != NULL) {
-		*from_env_store = thisenv->env_ipc_from;
+		*from_env_store = thisenv->env_ipc.recv.from;
 	}
 	if (perm_store != NULL) {
-		*perm_store = thisenv->env_ipc_perm;
+		*perm_store = thisenv->env_ipc.recv.perm;
 	}
 
-	return thisenv->env_ipc_value;
+	return thisenv->env_ipc.recv.value;
 }
 
 // Send 'val' (and 'pg' with 'perm', if 'pg' is nonnull) to 'toenv'.
@@ -67,12 +67,14 @@ ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 		pg = (void *) UTOP;
 	}
 
-	while ((r = sys_ipc_try_send(to_env, val, pg, perm)) < 0) {
-		if (r != -E_IPC_NOT_RECV) {
-			panic("sys_ipc_try_send fails: %e.\n", r);
-		}
-		sys_yield();
-	}
+//	while ((r = sys_ipc_try_send(to_env, val, pg, perm)) < 0) {
+//		if (r != -E_IPC_NOT_RECV) {
+//			panic("sys_ipc_try_send fails: %e.\n", r);
+//		}
+//		sys_yield();
+//	}
+
+	sys_ipc_send(to_env, val, pg, perm);
 }
 
 // Find the first environment of the given type.  We'll use this to

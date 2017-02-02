@@ -281,8 +281,8 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
 
-	// Also clear the IPC receiving flag.
-	e->env_ipc_recving = 0;
+	// Also clear the IPC blocked flag.
+	e->env_ipc.ipc_status = IPC_NOT_BLOCKED;
 
 	// commit the allocation
 	env_free_list = e->env_link;
@@ -597,3 +597,39 @@ env_run(struct Env *e)
 	panic("env_run never returns");
 }
 
+// Try active an environment blocked by IPC_BLOCKED_BY_SEND.
+void env_send_ipc(struct Env *e) {
+	struct Env *to_e;
+	if (e->env_ipc.ipc_status != IPC_BLOCKED_BY_SEND) {
+		panic("env %d is not blocked by send.", e->env_id);
+	}
+
+	// Receiver does not exist, active the environment by returning BAD_ENV.
+	if (envid2env(e->env_ipc.send.to, &to_e, false /* checkperm */) < 0) {
+		e->env_status = ENV_RUNNABLE;
+		e->env_tf.tf_regs.reg_eax = -E_BAD_ENV;
+		return;
+	}
+
+	if (to_e->env_ipc.ipc_status != IPC_BLOCKED_BY_RECV) {
+		return;
+	}
+
+	e->env_status = ENV_RUNNABLE;
+	to_e->env_status = ENV_RUNNABLE;
+
+	e->env_ipc.ipc_status = IPC_NOT_BLOCKED;
+
+	to_e->env_ipc.ipc_status = IPC_NOT_BLOCKED;
+	to_e->env_ipc.recv.from = e->env_id;
+	to_e->env_ipc.recv.value = e->env_ipc.send.value;
+
+	if ((uint32_t) e->env_ipc.send.srcva < UTOP && (uint32_t) to_e->env_ipc.recv.dstva < UTOP) {
+		to_e->env_ipc.recv.perm = e->env_ipc.send.perm;
+		if (page_insert(to_e->env_pgdir, e->env_ipc.send.page, to_e->env_ipc.recv.dstva, e->env_ipc.send.perm) < 0) {
+			e->env_tf.tf_regs.reg_eax = -E_NO_MEM;
+		}
+	} else {
+		to_e->env_ipc.recv.perm = 0;
+	}
+}

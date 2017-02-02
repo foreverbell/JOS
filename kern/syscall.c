@@ -12,6 +12,8 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 
+static bool check_perm(int perm);
+
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
 // Destroys the environment on memory errors.
@@ -192,12 +194,7 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 		return -E_INVAL;
 	}
 
-	// PTE_U and PTE_P must be set.
-	if ((perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P)) {
-		return -E_INVAL;
-	}
-	// Permissions other than PTE_AVAIL | PTE_W is not permitted.
-	if (perm & ~(PTE_U | PTE_P | PTE_AVAIL | PTE_W)) {
+	if (!check_perm(perm)) {
 		return -E_INVAL;
 	}
 
@@ -265,11 +262,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
 	}
 
 	// Permissions on PDE below UTOP are all P|U|W.
-	// Permission follows the same rule as described in sys_page_alloc.
-	if ((perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P)) {
-		return -E_INVAL;
-	}
-	if (perm & ~(PTE_U | PTE_P | PTE_AVAIL | PTE_W)) {
+	if (!check_perm(perm)) {
 		return -E_INVAL;
 	}
 
@@ -360,7 +353,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		return -E_BAD_ENV;
 	}
 
-	if (!env->env_ipc_recving) {
+	if (env->env_ipc.ipc_status != IPC_BLOCKED_BY_RECV) {
 		return -E_IPC_NOT_RECV;
 	}
 
@@ -368,11 +361,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		if ((uint32_t) srcva % PGSIZE != 0) {
 			return -E_INVAL;
 		}
-		// Permission follows the same rule as described in sys_page_alloc.
-		if ((perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P)) {
-			return -E_INVAL;
-		}
-		if (perm & ~(PTE_U | PTE_P | PTE_AVAIL | PTE_W)) {
+		if (!check_perm(perm)) {
 			return -E_INVAL;
 		}
 		// srcva is not mapped.
@@ -386,21 +375,76 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		}
 	}
 
-	env->env_ipc_recving = false;
-	env->env_ipc_from = curenv->env_id;
-	env->env_ipc_value = value;
-	if ((uint32_t) srcva < UTOP && (uint32_t) env->env_ipc_dstva < UTOP) {
-		env->env_ipc_perm = perm;
-		if (page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm) < 0) {
+	env->env_ipc.ipc_status = IPC_NOT_BLOCKED;
+	env->env_ipc.recv.from = curenv->env_id;
+	env->env_ipc.recv.value = value;
+	if ((uint32_t) srcva < UTOP && (uint32_t) env->env_ipc.recv.dstva < UTOP) {
+		env->env_ipc.recv.perm = perm;
+		if (page_insert(env->env_pgdir, page, env->env_ipc.recv.dstva, perm) < 0) {
 			return -E_NO_MEM;
 		}
 	} else {
-		env->env_ipc_perm = 0;
+		env->env_ipc.recv.perm = 0;
 	}
 
 	env->env_status = ENV_RUNNABLE;
 
 	return 0;
+}
+
+// Block version of 'sys_ipc_try_send'.
+static int
+sys_ipc_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
+{
+	assert(curenv != NULL);
+	assert(curenv->env_ipc.ipc_status == IPC_NOT_BLOCKED);
+
+	struct Env *env = NULL;
+	struct PageInfo *page = NULL;
+	pte_t *pte = 0;
+
+	// Intentionly to set checkperm as false.
+	if (envid2env(envid, &env, false /* checkperm */) < 0) {
+		return -E_BAD_ENV;
+	}
+
+	if ((uint32_t) srcva < UTOP) {
+		if ((uint32_t) srcva % PGSIZE != 0) {
+			return -E_INVAL;
+		}
+		if (!check_perm(perm)) {
+			return -E_INVAL;
+		}
+		// srcva is not mapped.
+		page = page_lookup(curenv->env_pgdir, srcva, &pte);
+		if (page == NULL) {
+			return -E_INVAL;
+		}
+		// Mapping a read-only page as writable is invalid.
+		if ((perm & PTE_W) && (~(*pte) & PTE_W)) {
+			return -E_INVAL;
+		}
+	} else {
+		perm = 0;
+	}
+	curenv->env_ipc.ipc_status = IPC_BLOCKED_BY_SEND;
+	curenv->env_ipc.send.value = value;
+	curenv->env_ipc.send.to = envid;
+	curenv->env_ipc.send.srcva = srcva;
+	curenv->env_ipc.send.perm = perm;
+	curenv->env_ipc.send.page = page;
+
+	// Mark ourselves not runnable to block ourselves for IPC.
+	curenv->env_status = ENV_NOT_RUNNABLE;
+
+	// sys_yield() never returns, set return value as 0 in eax.
+	// The return value may be altered by scheduler.
+	curenv->env_tf.tf_regs.reg_eax = 0;
+
+	// Give up the CPU.
+	sys_yield();
+
+	panic("sys_yield never returns.");
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -418,19 +462,17 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	assert(curenv != NULL);
-	assert(!curenv->env_ipc_recving);
+	assert(curenv->env_ipc.ipc_status == IPC_NOT_BLOCKED);
 
 	// Mark env_ipc_recving as 1 to indicate that we are ready for IPC.
 	if ((uint32_t) dstva < UTOP) {
 		if ((uint32_t) dstva % PGSIZE != 0) {
 			return -E_INVAL;
 		}
-		curenv->env_ipc_dstva = dstva;
-	} else {
-		curenv->env_ipc_dstva = NULL;
 	}
+	curenv->env_ipc.recv.dstva = dstva;
 
-	curenv->env_ipc_recving = true;
+	curenv->env_ipc.ipc_status = IPC_BLOCKED_BY_RECV;
 
 	// Mark ourselves not runnable to block ourselves for IPC.
 	curenv->env_status = ENV_NOT_RUNNABLE;
@@ -482,6 +524,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_env_set_pgfault_upcall((envid_t) a1, (void *) a2);
 	case SYS_ipc_try_send:
 		return sys_ipc_try_send((envid_t) a1, (uint32_t) a2, (void *) a3, (unsigned) a4);
+	case SYS_ipc_send:
+		return sys_ipc_send((envid_t) a1, (uint32_t) a2, (void *) a3, (unsigned) a4);
 	case SYS_ipc_recv:
 		return sys_ipc_recv((void *) a1);
 	default:
@@ -490,3 +534,17 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	}
 }
 
+// PTE_U | PTE_P must be set, PTE_AVAIL | PTE_W may or may not be set,
+// but no other bits may be set.
+static bool
+check_perm(int perm) {
+	// PTE_U and PTE_P must be set.
+	if ((perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P)) {
+		return false;
+	}
+	// Permissions other than PTE_AVAIL | PTE_W is not permitted.
+	if (perm & ~(PTE_U | PTE_P | PTE_AVAIL | PTE_W)) {
+		return false;
+	}
+	return true;
+}
