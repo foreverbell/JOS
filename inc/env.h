@@ -45,6 +45,31 @@ enum EnvType {
 	ENV_TYPE_NS,		// Network server
 };
 
+enum IPCStatus {
+	IPC_NOT_BLOCKED,
+	IPC_BLOCKED_BY_SEND,
+	IPC_BLOCKED_BY_RECV
+};
+
+struct IPC {
+	enum IPCStatus ipc_status;
+	union {
+		struct {
+			void *srcva;
+			uint32_t value;
+			envid_t to;
+			int perm;
+			struct PageInfo *page;
+		} send;
+		struct {
+			void *dstva;		// VA at which to map received page
+			uint32_t value;		// Data value sent to us
+			envid_t from;		// envid of the sender
+			int perm;		// Perm of page mapping received
+		} recv;
+	};
+};
+
 struct Env {
 	struct Trapframe env_tf;	// Saved registers
 	struct Env *env_link;		// Next free Env
@@ -62,11 +87,7 @@ struct Env {
 	void *env_pgfault_upcall;	// Page fault upcall entry point
 
 	// Lab 4 IPC
-	bool env_ipc_recving;		// Env is blocked receiving
-	void *env_ipc_dstva;		// VA at which to map received page
-	uint32_t env_ipc_value;		// Data value sent to us
-	envid_t env_ipc_from;		// envid of the sender
-	int env_ipc_perm;		// Perm of page mapping received
+	struct IPC env_ipc;
 };
 
 #endif // !JOS_INC_ENV_H
