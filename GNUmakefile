@@ -66,7 +66,7 @@ endif
 # try to generate a unique GDB port
 GDBPORT	:= $(shell expr `id -u` % 5000 + 25000)
 
-CC	:= $(GCCPREFIX)gcc-4.9 -pipe
+CC	:= $(GCCPREFIX)gcc -pipe
 AS	:= $(GCCPREFIX)as
 AR	:= $(GCCPREFIX)ar
 LD	:= $(GCCPREFIX)ld
@@ -75,7 +75,7 @@ OBJDUMP	:= $(GCCPREFIX)objdump
 NM	:= $(GCCPREFIX)nm
 
 # Native commands
-NCC	:= gcc-4.9 $(CC_VER) -pipe
+NCC	:= gcc $(CC_VER) -pipe
 NATIVE_CFLAGS := $(CFLAGS) $(DEFS) $(LABDEFS) -I$(TOP) -MD -Wall
 TAR	:= gtar
 PERL	:= perl
@@ -84,7 +84,7 @@ PERL	:= perl
 # -fno-builtin is required to avoid refs to undefined functions in the kernel.
 # Only optimize to -O1 to discourage inlining, which complicates backtraces.
 CFLAGS := $(CFLAGS) $(DEFS) $(LABDEFS) -O1 -fno-builtin -I$(TOP) -MD
-CFLAGS += -fno-omit-frame-pointer
+CFLAGS += -fno-omit-frame-pointer -fno-pic
 CFLAGS += -std=gnu99
 CFLAGS += -static
 CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gstabs -m32
