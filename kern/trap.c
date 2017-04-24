@@ -448,6 +448,7 @@ page_fault_handler(struct Trapframe *tf)
 			uxstack_top = (uintptr_t) tf->tf_esp - 4;
 		}
 		utf = ((struct UTrapframe *) uxstack_top) - 1;
+		// We still need to validate utf in case of exception stack overflow.
 		user_mem_assert(curenv, utf, sizeof(struct UTrapframe), PTE_W);
 
 		// Populate utf.
