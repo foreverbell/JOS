@@ -95,6 +95,15 @@ duppage(envid_t envid, unsigned pn)
 		perm = (uvpt[pn] & PTE_SYSCALL) | PTE_P | PTE_COW;
 		perm &= ~PTE_W; // read-only
 
+		// We first mark the page in child env as COW, then parent.
+		// The ordering of setting child then parent matters, as the
+		// execution flow can be interleaved. For example, if we first
+		// mark the parent stack as COW, the following execution will
+		// raise a page fault as the stack is not writable. The
+		// sys_page_map will map a non-COW page for the stack, but the
+		// child stack will be COW. The child env will observe parent's
+		// updates until it tries to write the stack, then a new copy
+		// of the stack with parent's updates is created.
 		if ((r = sys_page_map(0, va, envid, va, perm)) < 0) {
 			panic("sys_page_map fails: %e.", r);
 			return r;
