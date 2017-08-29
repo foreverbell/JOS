@@ -150,9 +150,16 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// Recursively insert PD in itself as a page table, to form
 	// a virtual page table at virtual address UVPT.
-	// (For now, you don't have understand the greater purpose of the
-	// following line.)
-
+	//
+	// PDE for each env also sets this PTE entry. One thing different from
+	// other non-exokernel for JOS is, User env can access PDE from ring 3.
+	// By using this setting we can make user env read its PDE simply by
+	// inspecting uvpt (a fixed address). The PTE for page number N is
+	// stored in uvpt[N].
+	//
+	// For more details, see comments in inc/memlayout.h and description in
+	// https://pdos.csail.mit.edu/6.828/2016/lec/l-josmem.html.
+	//
 	// Permissions: kernel R, user R
 	kern_pgdir[PDX(UVPT)] = PADDR(kern_pgdir) | PTE_U | PTE_P;
 
